@@ -44,6 +44,7 @@ def stitch_folder(
     *,
     tile_size: int = 1000,
     background_rgba: Tuple[int, int, int, int] | None = None,
+    global_bbox: Tuple[int, int, int, int] | None = None,
 ) -> None:
     tiles = discover_tiles(folder)
     if not tiles:
@@ -52,7 +53,11 @@ def stitch_folder(
             f"Expected files like '602_763.png'."
         )
 
-    min_x, min_y, max_x, max_y = compute_bounding_box(tiles)
+    # Determine bounding box: use global if provided, else local
+    if global_bbox is not None:
+        min_x, min_y, max_x, max_y = global_bbox
+    else:
+        min_x, min_y, max_x, max_y = compute_bounding_box(tiles)
 
     cols = max_x - min_x + 1
     rows = max_y - min_y + 1
