@@ -157,6 +157,101 @@ Show help:
 python stitch_tiles.py -h
 ```
 
+### Render a timelapse (MP4 or GIF)
+
+Note: GIF rendering will be lower quality than MP4.
+
+Use `generate_timelapse.py` to stitch each timestamped folder under `tiles/` into a frame, then render a timelapse with ffmpeg.
+
+Windows (PowerShell):
+
+```powershell
+# Render MP4 with 2 fps (default)
+python generate_timelapse.py --format mp4
+
+# Show each frame for 1.5s using a rational framerate
+$env:FRAME_DURATION_SECONDS = "1.5"
+python generate_timelapse.py --format mp4
+
+# Or set explicit FPS
+$env:FRAMERATE = "5"
+python generate_timelapse.py --format gif --scale-width 1200
+
+# Use a custom ffmpeg path (if not on PATH)
+$env:FFMPEG_BINARY = "C:\\ffmpeg\\bin\\ffmpeg.exe"
+python generate_timelapse.py --format both
+```
+
+Linux/macOS:
+
+```bash
+# Render default MP4
+python generate_timelapse.py --format mp4
+
+# Hold each frame for 2 seconds
+FRAME_DURATION_SECONDS=2 python generate_timelapse.py --format gif
+
+# Scale output width to 1600px, keep aspect ratio
+SCALE_WIDTH=1600 python generate_timelapse.py --format mp4
+```
+
+By default the script will:
+
+- Stitch each `tiles/<timestamp>/` to `tiles/<timestamp>/stitched.png`, skipping ones that already exist.
+- Ensure all frames share a consistent canvas using a global bounding box across timestamps, so the timelapse doesn’t wobble.
+- Render frames in chronological order (sorted by folder name).
+
+You can force re-stitching with `--force-stitch` or `FORCE_STITCH=1`.
+
+### MP4 compatibility (Windows/Discord)
+
+The MP4 encoder is configured for broad compatibility:
+
+- H.264 `yuv420p`, `-profile:v high`, `-level:v 4.1`, `-tag:v avc1`, `-movflags +faststart`.
+- Constant frame pacing is enforced and output dimensions are made even.
+- If you do not pass `--scale-width`, the width is auto-clamped to a safe maximum (`MP4_MAX_WIDTH`, default 3840). Override via env or pass `--scale-width` explicitly.
+
+Examples:
+
+```powershell
+# Default compatible MP4
+python .\generate_timelapse.py --format mp4
+
+# Force 1080p and a conservative profile/level
+$env:MP4_MAX_WIDTH = "1920"; $env:H264_PROFILE = "main"; $env:H264_LEVEL = "4.0"
+python .\generate_timelapse.py --format mp4
+```
+
+Environment variables (can also be set via `--flags` where provided):
+
+- `FRAMERATE`: input framerate for frames (e.g., `5`). Alternative to `FRAME_DURATION_SECONDS`.
+- `FRAME_DURATION_SECONDS`: seconds per frame (e.g., `1.5`). Takes precedence over `FRAMERATE`.
+- `FFMPEG_BINARY`: ffmpeg binary name or path (default: `ffmpeg`).
+- `OUTPUT_FORMAT`: `mp4`, `gif`, or `both` (default: `mp4`).
+- `SCALE_WIDTH`: optional width to scale output to (height auto-calculated).
+- `GIF_SCALE_WIDTH`: optional GIF width. Defaults to 1000 if unset to avoid OOM on large frames.
+- `TILE_SIZE`: expected tile size when stitching (default: 1000).
+- `STITCH_BACKGROUND`: optional solid background color used when stitching (e.g., `white`, `#000`).
+- `FORCE_STITCH`: re-stitch even if `stitched.png` exists (`1`/`0`).
+- `VIDEO_CODEC`: mp4 video codec (default: `libx264`).
+- `CRF`: mp4 CRF quality (default: `20`, lower is higher quality).
+- `PIX_FMT`: mp4 pixel format (default: `yuv420p`).
+- `MP4_MAX_WIDTH`: maximum width when no `--scale-width` is provided; auto-downscales if wider (default: `3840`).
+- `H264_PROFILE`: H.264 profile for MP4 (default: `high`).
+- `H264_LEVEL`: H.264 level for MP4 (default: `4.1`).
+- `TILES_ROOT`: root folder containing timestamped subfolders (default: `tiles`).
+- `MIN_TIMESTAMP` / `MAX_TIMESTAMP`: include only folders in this lexicographic range.
+- `BBOX`: explicit tile bbox `minX,minY,maxX,maxY` to constrain canvas.
+- `CENTER_X`, `CENTER_Y`, `BUFFER_SIZE`: alternative bbox definition centered on a tile.
+- `MAX_TOTAL_PIXELS`: safety limit for frame area (default ~80MP); aborts if exceeded.
+- `LIMIT_FRAMES`: only use first N frames (useful for testing and to reduce load).
+
+Show help:
+
+```bash
+python generate_timelapse.py -h
+```
+
 ### License
 
 MIT. See `LICENSE`.
